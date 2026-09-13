@@ -1,31 +1,26 @@
-#Это так называемый мультистейдж docker-файл. Сначала делаем образ, который соберёт нам java-приложение,
-#а затем из него берём собранный артефакт и кладём его в новый образ, чтобы оставить в нём меньше лишнего
+FROM maven:3.9-eclipse-temurin-17 AS builder
 
-# build
-FROM maven:3.8.2-openjdk-16-slim as builder
-# задаём переменную VERSION, которая будет использоваться для сборки проекта
-ARG VERSION=${VERSION}
 WORKDIR /usr/src/app
-COPY ./src ./src
-COPY *.xml ./
+COPY pom.xml checkstyle.xml ./
+COPY src ./src
 
-RUN mvn package -Dversion.application=${VERSION}
+ARG VERSION=0.0.1-SNAPSHOT
+RUN VERSION="${VERSION}" mvn --batch-mode --no-transfer-progress package \
+    && cp target/sausage-store-${VERSION}.jar /usr/src/app/sausage-store.jar
 
-# release
-FROM openjdk:16-jdk-alpine
-ARG VERSION=${VERSION}
+FROM eclipse-temurin:17-jre-jammy
+
 WORKDIR /app
-# создаём пользователя jaruser
-RUN addgroup --system jaruser \
-    && adduser -S -s /bin/false -G jaruser jaruser -D -H \
-    && apk add --no-cache dumb-init==1.2.5-r0 \
-    && apk add --update curl \
-    && rm -rf /var/cache/apk/* \
+RUN groupadd --system jaruser \
+    && useradd --system --gid jaruser --no-create-home --shell /usr/sbin/nologin jaruser \
     && mkdir -p /logs/reports \
-    && chown -R jaruser:jaruser /logs
-COPY --chown=jaruser:jaruser \
-     --from=builder /usr/src/app/target/sausage-store-${VERSION}.jar ./sausage-store.jar
-EXPOSE 8080
-# приложение будет запускаться под пользователем jaruser
+    && chown -R jaruser:jaruser /app /logs
+
+ENV REPORT_PATH=/logs/reports \
+    LOG_PATH=/logs
+
+COPY --from=builder --chown=jaruser:jaruser /usr/src/app/sausage-store.jar ./sausage-store.jar
+
 USER jaruser
-ENTRYPOINT ["dumb-init", "java", "-jar", "-Dmyserver.bindPort=8080", "./sausage-store.jar"]
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/sausage-store.jar"]

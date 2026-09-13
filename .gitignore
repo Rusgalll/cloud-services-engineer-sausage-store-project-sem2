@@ -1,1 +1,6 @@
 .env
+kubeconfig.*
+**/node_modules/
+**/dist/
+**/target/
+kubeconfig

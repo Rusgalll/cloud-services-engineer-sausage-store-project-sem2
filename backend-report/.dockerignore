@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+kubeconfig*
+main
+backend-report
+*.exe
+*.test
+*.log

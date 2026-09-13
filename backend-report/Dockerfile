@@ -1,32 +1,23 @@
-# Start from the latest golang base image
-FROM golang:latest as builder
+FROM golang:1.26-alpine3.23 AS builder
 
-# Set the Current Working Directory inside the container
 WORKDIR /app
-
-# Copy go mod and sum files
 COPY go.mod go.sum ./
-
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 RUN go mod download
-
-# Copy the source from the current directory to the Working Directory inside the container
 COPY . .
 
-# Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+ENV CGO_ENABLED=0
+RUN go test ./... \
+    && go build -trimpath -ldflags="-s -w" -o /app/backend-report .
 
+FROM alpine:3.23
 
-######## Start a new stage from scratch #######
-FROM alpine:latest  
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S reporter \
+    && adduser -S -G reporter reporter
+WORKDIR /app
+COPY --from=builder --chown=reporter:reporter /app/backend-report ./backend-report
 
-WORKDIR /root/
-
-# Copy the Pre-built binary file from the previous stage
-COPY --from=builderer /app/main .
-
-# Expose port 8080 to the outside world
+USER reporter
+ENV PORT=8080
 EXPOSE 8080
-
-# Command to run the executable
-CMD ["/app/main"] 
+ENTRYPOINT ["/app/backend-report"]
