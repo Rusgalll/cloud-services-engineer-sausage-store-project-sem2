@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: postgresql
+  replicas: {{ .Values.postgresql.replicas }}
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: {{ .Values.postgresql.image }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        envFrom:
+          - configMapRef:
+              name: postgresql-conf
+          - secretRef:
+              name: postgresql-secret
+        ports:
+        - containerPort: {{ .Values.postgresql.containerPort }}
+        resources:
+{{ toYaml .Values.postgresql.resources | indent 10 }}
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      {{- if .Values.postgresql.persistence.storageClass }}
+      storageClassName: {{ .Values.postgresql.persistence.storageClass | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.postgresql.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: {{ .Values.postgresql.containerPort }}
+    targetPort: {{ .Values.postgresql.containerPort }}
+  selector:
+    app: postgresql
+  clusterIP: None
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-conf
+  namespace: {{ .Release.Namespace }}
+data:
+  POSTGRES_DB: {{ .Values.postgresql.env.POSTGRES_DB | quote }}
+  POSTGRES_USER: {{ .Values.postgresql.env.POSTGRES_USER | quote }}
+  PGDATA: {{ .Values.postgresql.env.PGDATA | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgresql-secret
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: {{ .Values.postgresql.env.POSTGRES_PASSWORD | quote }}

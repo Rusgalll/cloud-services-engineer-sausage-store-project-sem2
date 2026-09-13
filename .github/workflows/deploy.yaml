@@ -27,6 +27,54 @@ jobs:
           # Установка сборщика контейнеров Docker:
           uses: docker/setup-buildx-action@v4
 
+        - name: Проверка миграций PostgreSQL
+          run: |
+            docker run --detach --name postgresql-migrations \
+              --env POSTGRES_DB=sausage-store \
+              --env POSTGRES_USER=store \
+              --env POSTGRES_PASSWORD=migration-test \
+              postgres:14
+            trap 'docker rm --force postgresql-migrations >/dev/null' EXIT
+
+            flyway=(docker run --rm --network container:postgresql-migrations
+              --volume "$GITHUB_WORKSPACE/backend/src/main/resources/db/migration:/flyway/sql:ro"
+              flyway/flyway:8.0.5
+              -url=jdbc:postgresql://localhost:5432/sausage-store
+              -user=store -password=migration-test -connectRetries=30)
+            "${flyway[@]}" migrate
+            "${flyway[@]}" migrate
+            "${flyway[@]}" validate
+
+            docker exec --interactive postgresql-migrations \
+              psql --username=store --dbname=sausage-store --set=ON_ERROR_STOP=1 <<'SQL'
+            BEGIN;
+            DO $$
+            DECLARE
+              new_order_id BIGINT;
+            BEGIN
+              IF (SELECT COUNT(*) FROM product) <> 6
+                OR (SELECT COUNT(*) FROM orders) <> 10000
+                OR (SELECT COUNT(*) FROM order_product) <> 10000 THEN
+                RAISE EXCEPTION 'Неверное количество начальных данных';
+              END IF;
+              IF (SELECT COUNT(*) FROM flyway_schema_history WHERE success) <> 4 THEN
+                RAISE EXCEPTION 'Применены не все четыре миграции';
+              END IF;
+              INSERT INTO orders (status, date_created)
+                VALUES ('PAID', CURRENT_DATE) RETURNING id INTO new_order_id;
+              IF new_order_id <> 10001 THEN
+                RAISE EXCEPTION 'Неверный идентификатор нового заказа: %', new_order_id;
+              END IF;
+              INSERT INTO order_product (quantity, order_id, product_id)
+                VALUES (2, new_order_id, 1);
+              IF nextval(pg_get_serial_sequence('product', 'id')) <> 7 THEN
+                RAISE EXCEPTION 'Неверный следующий идентификатор товара';
+              END IF;
+            END;
+            $$;
+            ROLLBACK;
+            SQL
+
         - name: Login to Docker
           # Авторизация на Docker Hub:
           uses: docker/login-action@v4
