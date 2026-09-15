@@ -27,7 +27,7 @@ data:
         keepalive_timeout  65;
         server {
 
-          listen       80;
+          listen       {{ .Values.containerPort }};
 
           location / {
               root   /usr/share/nginx/html;
@@ -36,7 +36,7 @@ data:
           }
 
             location /api {
-              proxy_pass http://{{ .Release.Name }}-backend-service:8080;
+              proxy_pass http://{{ .Release.Name }}-backend-service:{{ .Values.backendPort }};
           }
 
           error_page   500 502 503 504  /50x.html;

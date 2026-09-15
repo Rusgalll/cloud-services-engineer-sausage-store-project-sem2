@@ -1,5 +1,11 @@
 global:
   imagePullPolicy: Always
+  mongodb:
+    host: mongodb
+    port: 27017
+    database: sausage-store
+    username: reports
+    password: reportspassword
   ###vault:
   ###  host: ip
   ###  name: vault
@@ -15,11 +21,12 @@ frontend:
   service:
     port: 80
   ingress:
-    host: YOUR_STUDENT_HOSTNAME.students-projects.ru # Корректный домен будет указан в задании
+    host: front-yourname.2sem.students-projects.ru # Корректный домен будет указан в задании
+    tlsSecretName: 2sem-students-projects-wildcard-secret
     path: /
     pathType: Prefix
   containerPort: 80
-  image: YOUR_DOCKERHUB/sausage-frontend:latest
+  image: rusgalll/sausage-frontend:latest
   resources:
     requests:
       memory: "128Mi"
@@ -28,6 +35,7 @@ frontend:
       memory: "128Mi"
       cpu: "1"
   nginxConf: nginx.conf
+  backendPort: 8080
 
 backend:
   annotations:
@@ -46,7 +54,7 @@ backend:
   replicas: 1
   strategy:
   ### Опишите стратегию RollingUpdate для бэкенда
-  image: YOUR_DOCKERHUB/sausage-backend:latest
+  image: rusgalll/sausage-backend:latest
   imagePullPolicy: Always
   resources:
     requests:
@@ -67,6 +75,21 @@ backend-report:
 ### Приложение использует переменную PORT - порт, на котором оно запустится и DB - Uri-подключение к mongodb. 
 ### DB положите в Secret, PORT в ConfigMap
 ### Опишите HPA для backend-report
+  replicas: 1
+  revisionHistoryLimit: 15
+  strategy:
+    type: Recreate
+  image: rusgalll/sausage-backend-report:latest
+  containerPort: 8080
+  env:
+    port: "8080"
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
 
 infra:
   postgresql:
@@ -90,7 +113,27 @@ infra:
       size: 1Gi
       storageClass: ""
   mongodb:
+    image: mongo:7.0
+    replicas: 1
     env:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
     containerPort: 27017
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+    persistence:
+      size: 1Gi
+      storageClass: ""
+    init:
+      resources:
+        requests:
+          memory: "128Mi"
+          cpu: "50m"
+        limits:
+          memory: "256Mi"
+          cpu: "250m"

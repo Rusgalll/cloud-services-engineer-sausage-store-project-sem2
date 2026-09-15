@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-mongodb-init-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mongodb-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mongodb-init
+        image: {{ .Values.mongodb.image }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        envFrom:
+          - configMapRef:
+              name: mongodb-conf
+          - secretRef:
+              name: mongodb-secret
+        resources:
+{{ toYaml .Values.mongodb.init.resources | indent 10 }}
+        command: ["sh", "-ec"]
+        args:
+          - |
+            until mongosh --host "$MONGO_HOST" --port "$MONGO_PORT" --quiet --eval '
+              const admin = db.getSiblingDB("admin");
+              admin.auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD);
+              admin.runCommand({ping: 1});
+            '; do
+              sleep 5
+            done
+            mongosh --host "$MONGO_HOST" --port "$MONGO_PORT" --quiet --eval '
+              const admin = db.getSiblingDB("admin");
+              admin.auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD);
+              const reports = db.getSiblingDB(process.env.MONGO_REPORTS_DATABASE);
+              const username = process.env.MONGO_REPORTS_USERNAME;
+              const options = {
+                pwd: process.env.MONGO_REPORTS_PASSWORD,
+                roles: [{role: "readWrite", db: process.env.MONGO_REPORTS_DATABASE}]
+              };
+              if (reports.getUser(username)) {
+                reports.updateUser(username, options);
+              } else {
+                reports.createUser({user: username, ...options});
+              }
+              if (!reports.getCollectionNames().includes("reports")) {
+                reports.createCollection("reports");
+              }
+            '

@@ -15,8 +15,10 @@ metadata:
 spec:
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   replicas: {{ .Values.replicas }}
+  {{- if .Values.strategy }}
   strategy:
-{{ toYaml .Values.strategy | indent 4 }} 
+{{ toYaml .Values.strategy | indent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-{{ .Chart.Name }}
@@ -34,6 +36,11 @@ spec:
           image: {{ .Values.image }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           env:
+            - name: SPRING_DATA_MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
+                  key: mongodb_uri
             - name: SPRING_DATASOURCE_URL
               valueFrom:
                 configMapKeyRef:
@@ -64,8 +71,10 @@ spec:
           ports:
             - name: {{ .Chart.Name }}
               containerPort: {{ .Values.containerPort }}
+          {{- if .Values.livenessProbe }}
           livenessProbe:
-{{ toYaml .Values.livenessProbe | indent 12 }} 
+{{ toYaml .Values.livenessProbe | indent 12 }}
+          {{- end }}
       volumes:
       - name: {{ .Release.Name }}-{{ .Chart.Name }}-conf
         configMap:
@@ -81,6 +90,7 @@ spec:
               path: report_path
             - key: log_path
               path: log_path
+{{- if .Values.vpa }}
 ---
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
@@ -94,4 +104,5 @@ spec:
   updatePolicy:
 {{ toYaml .Values.vpa.updatePolicy | indent 4 }} 
   resourcePolicy:
-{{ toYaml .Values.vpa.resourcePolicy | indent 4 }} 
+{{ toYaml .Values.vpa.resourcePolicy | indent 4 }}
+{{- end }}

@@ -125,7 +125,27 @@ jobs:
 
       steps:
       #### Опишите необходимые шаги
-        - run: ":"
+        - name: Check out the repo
+          uses: actions/checkout@v6
+
+        - name: Установка Helm
+          uses: azure/setup-helm@v4
+          with:
+            version: v3.19.0
+
+        - name: Проверка и упаковка Helm-чарта
+          run: |
+            helm lint ./sausage-store-chart
+            helm package ./sausage-store-chart --destination "$RUNNER_TEMP/helm-packages"
+
+        - name: Публикация Helm-чарта в Nexus
+          run: |
+            for chart in "$RUNNER_TEMP"/helm-packages/*.tgz; do
+              curl --fail --silent --show-error \
+                --user "$NEXUS_HELM_REPO_USER:$NEXUS_HELM_REPO_PASSWORD" \
+                --upload-file "$chart" \
+                "${NEXUS_HELM_REPO%/}/"
+            done
 
   # Деплоим приложения в кластер Kubernetes с помощью helm-чарт
   deploy_helm_chart_to_kubernetes:
