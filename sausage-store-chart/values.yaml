@@ -53,6 +53,10 @@ backend:
   revisionHistoryLimit: 15
   replicas: 1
   strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   ### Опишите стратегию RollingUpdate для бэкенда
   image: rusgalll/sausage-backend:latest
   imagePullPolicy: Always
