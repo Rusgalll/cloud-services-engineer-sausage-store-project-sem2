@@ -155,4 +155,26 @@ jobs:
 
       steps:
       #### Опишите необходимые шаги
-        - run: ":"
+        - name: Установка Helm
+          uses: azure/setup-helm@v4
+          with:
+            version: v3.19.0
+
+        - name: Добавление Helm-репозитория Nexus
+          run: |
+            helm repo add nexus "$NEXUS_HELM_REPO" \
+              --username "$NEXUS_HELM_REPO_USER" \
+              --password "$NEXUS_HELM_REPO_PASSWORD"
+            helm repo update
+
+        - name: Настройка kubeconfig
+          run: |
+            umask 077
+            printf '%s' "$KUBE_CONFIG" > "$RUNNER_TEMP/kubeconfig"
+
+        - name: Деплой Helm-чарта в Kubernetes
+          run: |
+            helm upgrade --install sausage-store nexus/sausage-store \
+              --kubeconfig "$RUNNER_TEMP/kubeconfig" \
+              --namespace "$SAUSAGE_STORE_NAMESPACE" \
+              --wait --wait-for-jobs --timeout 10m

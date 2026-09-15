@@ -21,7 +21,7 @@ frontend:
   service:
     port: 80
   ingress:
-    host: front-yourname.2sem.students-projects.ru # Корректный домен будет указан в задании
+    host: front-rusgalll.2sem.students-projects.ru # Корректный домен будет указан в задании
     tlsSecretName: 2sem-students-projects-wildcard-secret
     path: /
     pathType: Prefix
