@@ -177,4 +177,5 @@ jobs:
             helm upgrade --install sausage-store nexus/sausage-store \
               --kubeconfig "$RUNNER_TEMP/kubeconfig" \
               --namespace "$SAUSAGE_STORE_NAMESPACE" \
+              --history-max 3 \
               --wait --wait-for-jobs --timeout 10m
