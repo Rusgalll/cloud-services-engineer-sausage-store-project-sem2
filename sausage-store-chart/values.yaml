@@ -69,6 +69,13 @@ backend:
       cpu: "1"
   containerPort: 8080
   livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 120
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
   ### Опишите LivenessProbe для бэкенда
   vpa:
   ### Опишите VPA для бэкенда
