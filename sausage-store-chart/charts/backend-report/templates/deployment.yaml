@@ -14,7 +14,9 @@ metadata:
     app.kubernetes.io/part-of: {{ .Release.Name }}
 spec:
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- if not .Values.hpa.enabled }}
   replicas: {{ .Values.replicas }}
+  {{- end }}
   strategy:
 {{ toYaml .Values.strategy | indent 4 }}
   selector:

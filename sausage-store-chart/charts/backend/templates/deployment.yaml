@@ -98,6 +98,7 @@ apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: {{ .Release.Name }}-{{ .Chart.Name }}-vpa
+  namespace: {{ .Release.Namespace }}
 spec:
   targetRef:
     apiVersion: "apps/v1"
