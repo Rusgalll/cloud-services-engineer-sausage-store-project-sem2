@@ -33,7 +33,7 @@ frontend:
       cpu: "100m"
     limits:
       memory: "128Mi"
-      cpu: "1"
+      cpu: "250m"
   nginxConf: nginx.conf
   backendPort: 8080
 
